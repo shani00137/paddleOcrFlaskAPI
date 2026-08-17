@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: paddleocr-api
+    runtime: docker
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
