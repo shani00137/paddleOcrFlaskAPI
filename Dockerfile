@@ -15,6 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY flask_api.py .
 
-EXPOSE 5000
+EXPOSE 10000
 
 CMD ["python", "flask_api.py"]
