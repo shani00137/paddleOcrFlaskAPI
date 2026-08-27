@@ -1,4 +1,5 @@
 import os
+import socket
 import tempfile
 import time
 from flask import Flask, request, jsonify
@@ -72,6 +73,20 @@ def ocr_endpoint():
         os.remove(path)
 
 
+def find_free_port(preferred):
+    candidates = [preferred, 8080, 8000, 8502, 9000, 5001, 3000]
+    for p in candidates:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("0.0.0.0", p))
+            s.close()
+            return p
+        except OSError:
+            continue
+    return preferred
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = find_free_port(int(os.environ.get("PORT", 5000)))
+    print(f"Starting Flask on port {port}", flush=True)
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
