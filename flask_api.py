@@ -3,9 +3,20 @@ import socket
 import tempfile
 import time
 from flask import Flask, request, jsonify
+from werkzeug.exceptions import HTTPException
 from paddleocr import PaddleOCR
 
 app = Flask(__name__)
+
+
+@app.errorhandler(HTTPException)
+def handle_http_error(e):
+    return jsonify({"error": e.description}), e.code
+
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    return jsonify({"error": f"Internal error: {e}"}), 500
 
 ocr = PaddleOCR(lang="en", use_textline_orientation=True)
 
@@ -33,10 +44,13 @@ def parse_result(result):
 
 @app.route("/ocr", methods=["POST"])
 def ocr_endpoint():
-    if "file" not in request.files:
+    if request.files is None or "file" not in request.files:
         return jsonify({"error": "No file in request"}), 400
 
     file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
     suffix = os.path.splitext(file.filename)[1].lower()
 
     if suffix not in [".pdf", ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"]:
