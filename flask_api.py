@@ -5,6 +5,7 @@ import time
 import tempfile
 
 from flask import Flask, request, jsonify
+from flasgger import Swagger
 from werkzeug.exceptions import HTTPException
 
 import numpy as np
@@ -14,6 +15,17 @@ from paddleocr import PaddleOCR
 
 
 app = Flask(__name__)
+
+app.config["SWAGGER"] = {
+    "title": "PaddleOCR API",
+    "uiversion": 3,
+    "description": (
+        "OCR API that accepts image or PDF uploads and "
+        "returns recognized text and extracted dates."
+    ),
+}
+
+swagger = Swagger(app)
 
 
 # -----------------------------
@@ -292,6 +304,46 @@ def process_pdf_path(path):
 @app.route("/ocr", methods=["POST"])
 def ocr_endpoint():
 
+    """
+    Upload files (images or PDF) for OCR processing.
+    ---
+    tags:
+      - OCR
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: false
+        description: >-
+          Image (jpg, jpeg, png, bmp, tiff, tif) or PDF to OCR.
+          May be provided multiple times.
+      - name: images
+        in: formData
+        type: file
+        required: false
+        description: >-
+          Alternative key for multiple image uploads.
+          May be provided multiple times.
+    responses:
+      200:
+        description: OCR processing complete
+        schema:
+          type: object
+          properties:
+            text:
+              type: string
+              description: All recognized raw text from uploaded files
+      400:
+        description: Missing or empty file
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+    """
+
     # Accept either:
     # file = single/multiple files
     # images = multiple files
@@ -330,6 +382,8 @@ def ocr_endpoint():
 
 
     results = {}
+
+    all_text = []
 
     total_start = time.time()
 
@@ -371,14 +425,19 @@ def ocr_endpoint():
 
             if suffix == ".pdf":
 
+                pages = process_pdf_path(
+                    path
+                )
+
                 results[file.filename] = {
-
                     "type": "pdf",
-
-                    "pages": process_pdf_path(
-                        path
-                    )
+                    "pages": pages
                 }
+
+                for page in pages.values():
+                    all_text.extend(
+                        page.get("raw_text", [])
+                    )
 
 
             # -------------------------
@@ -404,12 +463,16 @@ def ocr_endpoint():
                     continue
 
 
+                output = process_image_np(img)
+
                 results[file.filename] = {
-
                     "type": "image",
-
-                    **process_image_np(img)
+                    **output
                 }
+
+                all_text.extend(
+                    output.get("raw_text", [])
+                )
 
 
         except Exception as e:
@@ -426,21 +489,8 @@ def ocr_endpoint():
                 os.remove(path)
 
 
-    total_elapsed = (
-        time.time() - total_start
-    )
-
-
     return jsonify({
-
-        "results": results,
-
-        "total_files": len(files),
-
-        "total_time_sec": round(
-            total_elapsed,
-            3
-        )
+        "text": "\n".join(all_text)
     })
 
 
@@ -450,6 +500,24 @@ def ocr_endpoint():
 
 @app.route("/health", methods=["GET"])
 def health():
+
+    """Health check endpoint.
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: Service status
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ok
+            device:
+              type: string
+              example: cpu
+    """
 
     return jsonify({
         "status": "ok",

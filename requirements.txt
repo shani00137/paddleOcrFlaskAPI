@@ -1,4 +1,5 @@
 flask==3.1.2
+flasgger==0.9.7.1
 paddleocr==3.4.0
 paddlepaddle==3.2.0
 paddlex==3.4.1
