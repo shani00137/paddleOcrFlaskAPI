@@ -1,0 +1,10 @@
+services:
+  paddleocr-api:
+    build: .
+    image: paddleocr-api:latest
+    container_name: paddleocr-api
+    ports:
+      - "5100:5100"
+    environment:
+      - PORT=5100
+    restart: unless-stopped
